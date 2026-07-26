@@ -168,20 +168,20 @@ export default function NewItemPage() {
 
         <div className="mb-5">
           <label className="mb-2 block text-base font-medium text-zinc-700">
-            단위당 개수
+            1{unit}당 낱개 수
           </label>
           <input
             type="number"
             value={countPerUnit}
             onChange={(e) => setCountPerUnit(e.target.value)}
             className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-base focus:border-zinc-500 focus:outline-none"
-            placeholder="예: 1박스=30개면 30"
+            placeholder={`예: 1${unit}에 30개 들어있으면 30`}
           />
         </div>
 
         <div className="mb-5">
           <label className="mb-2 block text-base font-medium text-zinc-700">
-            최소재고 수량
+            최소재고 수량 ({unit} 기준)
           </label>
           <input
             type="number"
@@ -210,14 +210,14 @@ export default function NewItemPage() {
 
         <div className="mb-5">
           <label className="mb-2 block text-base font-medium text-zinc-700">
-            초기 수량
+            초기 수량 ({unit} 기준)
           </label>
           <input
             type="number"
             value={initialQuantity}
             onChange={(e) => setInitialQuantity(e.target.value)}
             className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-base focus:border-zinc-500 focus:outline-none"
-            placeholder="지금 이미 갖고 있는 수량"
+            placeholder={`지금 이미 갖고 있는 ${unit} 수`}
           />
         </div>
 
