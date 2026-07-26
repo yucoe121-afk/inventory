@@ -8,9 +8,13 @@ const CATEGORY_OPTIONS = ["의료소모품", "사무용품", "청소용품"];
 
 export default function NewItemPage() {
   const [name, setName] = useState("");
+  const [spec, setSpec] = useState("");
   const [unit, setUnit] = useState(UNIT_OPTIONS[0]);
+  const [countPerUnit, setCountPerUnit] = useState("1");
   const [minStock, setMinStock] = useState("0");
   const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
+  const [initialQuantity, setInitialQuantity] = useState("0");
+  const [recorder, setRecorder] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -24,34 +28,78 @@ export default function NewItemPage() {
       return;
     }
 
+    const countPerUnitNumber = Number(countPerUnit);
+    if (Number.isNaN(countPerUnitNumber) || countPerUnitNumber < 1) {
+      setError("단위당 개수는 1 이상이어야 합니다.");
+      return;
+    }
+
     const minStockNumber = Number(minStock);
     if (Number.isNaN(minStockNumber) || minStockNumber < 0) {
       setError("최소재고는 0 이상이어야 합니다.");
       return;
     }
 
+    const initialQuantityNumber = Number(initialQuantity);
+    if (Number.isNaN(initialQuantityNumber) || initialQuantityNumber < 0) {
+      setError("초기 수량은 0 이상이어야 합니다.");
+      return;
+    }
+
+    if (initialQuantityNumber > 0 && recorder.trim() === "") {
+      setError("등록자를 입력해주세요.");
+      return;
+    }
+
     setError("");
     setSaving(true);
 
-    const { error: insertError } = await supabase.from("items").insert({
-      name: name.trim(),
-      unit,
-      min_stock: minStockNumber,
-      category,
-    });
-
-    setSaving(false);
+    const { data: insertedItem, error: insertError } = await supabase
+      .from("items")
+      .insert({
+        name: name.trim(),
+        spec: spec.trim() === "" ? null : spec.trim(),
+        unit,
+        count_per_unit: countPerUnitNumber,
+        min_stock: minStockNumber,
+        category,
+      })
+      .select()
+      .single();
 
     if (insertError) {
+      setSaving(false);
       setError("저장에 실패했습니다. 다시 시도해주세요.");
       return;
     }
 
+    if (initialQuantityNumber > 0) {
+      const { error: movementError } = await supabase
+        .from("stock_movements")
+        .insert({
+          item_id: insertedItem.id,
+          direction: "입고",
+          quantity: initialQuantityNumber,
+          recorder: recorder.trim(),
+        });
+
+      if (movementError) {
+        setSaving(false);
+        setError("초기 수량 저장에 실패했습니다. 다시 시도해주세요.");
+        return;
+      }
+    }
+
+    setSaving(false);
     setSuccess(true);
     setName("");
+    setSpec("");
     setUnit(UNIT_OPTIONS[0]);
+    setCountPerUnit("1");
     setMinStock("0");
     setCategory(CATEGORY_OPTIONS[0]);
+    setInitialQuantity("0");
+    setRecorder("");
   }
 
   return (
@@ -90,6 +138,19 @@ export default function NewItemPage() {
 
         <div className="mb-5">
           <label className="mb-2 block text-base font-medium text-zinc-700">
+            규격 (선택)
+          </label>
+          <input
+            type="text"
+            value={spec}
+            onChange={(e) => setSpec(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-base focus:border-zinc-500 focus:outline-none"
+            placeholder="예: M, 500ml"
+          />
+        </div>
+
+        <div className="mb-5">
+          <label className="mb-2 block text-base font-medium text-zinc-700">
             단위
           </label>
           <select
@@ -107,6 +168,19 @@ export default function NewItemPage() {
 
         <div className="mb-5">
           <label className="mb-2 block text-base font-medium text-zinc-700">
+            단위당 개수
+          </label>
+          <input
+            type="number"
+            value={countPerUnit}
+            onChange={(e) => setCountPerUnit(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-base focus:border-zinc-500 focus:outline-none"
+            placeholder="예: 1박스=30개면 30"
+          />
+        </div>
+
+        <div className="mb-5">
+          <label className="mb-2 block text-base font-medium text-zinc-700">
             최소재고 수량
           </label>
           <input
@@ -117,7 +191,7 @@ export default function NewItemPage() {
           />
         </div>
 
-        <div className="mb-8">
+        <div className="mb-5">
           <label className="mb-2 block text-base font-medium text-zinc-700">
             분류
           </label>
@@ -133,6 +207,34 @@ export default function NewItemPage() {
             ))}
           </select>
         </div>
+
+        <div className="mb-5">
+          <label className="mb-2 block text-base font-medium text-zinc-700">
+            초기 수량
+          </label>
+          <input
+            type="number"
+            value={initialQuantity}
+            onChange={(e) => setInitialQuantity(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-base focus:border-zinc-500 focus:outline-none"
+            placeholder="지금 이미 갖고 있는 수량"
+          />
+        </div>
+
+        {Number(initialQuantity) > 0 && (
+          <div className="mb-8">
+            <label className="mb-2 block text-base font-medium text-zinc-700">
+              등록자
+            </label>
+            <input
+              type="text"
+              value={recorder}
+              onChange={(e) => setRecorder(e.target.value)}
+              className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-base focus:border-zinc-500 focus:outline-none"
+              placeholder="예: 홍길동"
+            />
+          </div>
+        )}
 
         <button
           type="submit"
