@@ -138,7 +138,7 @@ export default function NewMovementPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-zinc-50 px-4 py-12">
+    <div className="flex flex-1 items-start justify-center bg-zinc-50 px-4 py-12">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm"
