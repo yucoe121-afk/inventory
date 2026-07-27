@@ -11,6 +11,7 @@ type Item = {
 
 type Movement = {
   id: string;
+  item_id: string;
   direction: "입고" | "출고";
   quantity: number;
   movement_date: string | null;
@@ -20,9 +21,9 @@ type Movement = {
 };
 
 const SELECT_WITH_CREATED_AT =
-  "id, direction, quantity, movement_date, created_at, note, items(name, spec, unit)";
+  "id, item_id, direction, quantity, movement_date, created_at, note, items(name, spec, unit)";
 const SELECT_WITHOUT_CREATED_AT =
-  "id, direction, quantity, movement_date, note, items(name, spec, unit)";
+  "id, item_id, direction, quantity, movement_date, note, items(name, spec, unit)";
 
 async function fetchMovements(itemId: string, withCreatedAt: boolean) {
   let query = supabase
@@ -41,6 +42,21 @@ async function fetchMovements(itemId: string, withCreatedAt: boolean) {
 
   const { data, error } = await ordered;
   return { rows: (data ?? []) as unknown as Movement[], error };
+}
+
+// 이 기록을 지우면 그 품목 재고가 얼마가 되는지 미리 계산한다.
+// 화면에는 그 품목의 기록이 모두 들어 있으므로 따로 조회하지 않는다.
+function stockAfterDelete(movements: Movement[], target: Movement) {
+  return movements
+    .filter(
+      (movement) =>
+        movement.item_id === target.item_id && movement.id !== target.id
+    )
+    .reduce(
+      (sum, movement) =>
+        sum + (movement.direction === "입고" ? movement.quantity : -movement.quantity),
+      0
+    );
 }
 
 function formatDate(movement: Movement) {
@@ -156,13 +172,26 @@ export default function MovementsPage() {
           </p>
         ) : (
           <ul className="divide-y divide-zinc-200">
-            {movements.map((movement) => (
+            {movements.map((movement) => {
+              const remaining =
+                confirmingId === movement.id
+                  ? stockAfterDelete(movements, movement)
+                  : 0;
+              return (
               <li key={movement.id} className="py-4">
                 {confirmingId === movement.id ? (
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-base font-medium text-zinc-900">
-                      이 기록을 지울까요?
-                    </p>
+                    {remaining < 0 ? (
+                      <p className="text-base font-medium text-red-700">
+                        ⚠️ 지우면 {movement.items?.name ?? "이 품목"} 재고가{" "}
+                        {remaining}
+                        {movement.items?.unit ?? ""}가 됩니다. 그래도 지울까요?
+                      </p>
+                    ) : (
+                      <p className="text-base font-medium text-zinc-900">
+                        이 기록을 지울까요?
+                      </p>
+                    )}
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -225,7 +254,8 @@ export default function MovementsPage() {
                   </div>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>
