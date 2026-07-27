@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { formatPieces, toPieces, UnitKind } from "@/lib/stock";
 
 type Item = {
   id: string;
   name: string;
   spec: string | null;
   unit: string;
+  count_per_unit: number;
   min_stock: number;
 };
 
@@ -15,19 +17,23 @@ type Movement = {
   item_id: string;
   direction: "입고" | "출고";
   quantity: number;
+  unit_kind: UnitKind;
 };
 
-type StockRow = Item & { stock: number };
+// stock, min_stock_pieces 는 둘 다 낱개 기준이다
+type StockRow = Item & { stock: number; min_stock_pieces: number };
 
-// 현재고 = 입고 수량 합계 - 출고 수량 합계.
+// 현재고 = 입고 수량 합계 - 출고 수량 합계. 전부 낱개로 환산해서 센다.
 // 재고 숫자를 따로 저장해두지 않고, 입출고 기록을 매번 처음부터 세어서 구한다.
 // 그래야 기록을 지우거나 고쳐도 숫자가 항상 기록과 일치한다.
 function calculateStock(items: Item[], movements: Movement[]): StockRow[] {
   const totals = new Map<string, number>();
+  const countPerUnit = new Map<string, number>();
 
   // 기록이 하나도 없는 품목도 0으로 표에 나와야 하므로, 먼저 전 품목을 0으로 깔아둔다
   for (const item of items) {
     totals.set(item.id, 0);
+    countPerUnit.set(item.id, item.count_per_unit);
   }
 
   for (const movement of movements) {
@@ -35,14 +41,22 @@ function calculateStock(items: Item[], movements: Movement[]): StockRow[] {
     if (current === undefined) {
       continue; // 품목이 지워졌는데 기록만 남은 경우는 건너뛴다
     }
+    const pieces = toPieces(
+      movement.quantity,
+      movement.unit_kind,
+      countPerUnit.get(movement.item_id) ?? 1
+    );
     totals.set(
       movement.item_id,
-      current +
-        (movement.direction === "입고" ? movement.quantity : -movement.quantity)
+      current + (movement.direction === "입고" ? pieces : -pieces)
     );
   }
 
-  return items.map((item) => ({ ...item, stock: totals.get(item.id) ?? 0 }));
+  return items.map((item) => ({
+    ...item,
+    stock: totals.get(item.id) ?? 0,
+    min_stock_pieces: item.min_stock * item.count_per_unit,
+  }));
 }
 
 // 재고를 "세는 일"과 부족한지 "판단하는 일"은 따로 둔다.
@@ -52,7 +66,7 @@ function isLowStock(row: StockRow) {
   if (row.min_stock === 0) {
     return false;
   }
-  return row.stock <= row.min_stock;
+  return row.stock <= row.min_stock_pieces;
 }
 
 // 부족한 품목을 표 맨 위로 모으고, 각 묶음 안은 가나다순으로 세운다.
@@ -78,8 +92,13 @@ export default function StockPage() {
   useEffect(() => {
     async function loadStock() {
       const [itemsResult, movementsResult] = await Promise.all([
-        supabase.from("items").select("id, name, spec, unit, min_stock").order("name"),
-        supabase.from("stock_movements").select("item_id, direction, quantity"),
+        supabase
+          .from("items")
+          .select("id, name, spec, unit, count_per_unit, min_stock")
+          .order("name"),
+        supabase
+          .from("stock_movements")
+          .select("item_id, direction, quantity, unit_kind"),
       ]);
 
       if (itemsResult.error || movementsResult.error) {
@@ -130,7 +149,15 @@ export default function StockPage() {
     // 기준이 바뀌면 부족 여부도 바뀌므로 순서를 다시 정렬한다
     setRows((prev) =>
       lowStockFirst(
-        prev.map((row) => (row.id === id ? { ...row, min_stock: value } : row))
+        prev.map((row) =>
+          row.id === id
+            ? {
+                ...row,
+                min_stock: value,
+                min_stock_pieces: value * row.count_per_unit,
+              }
+            : row
+        )
       )
     );
   }
@@ -221,7 +248,7 @@ export default function StockPage() {
                             : "py-3 pr-4 text-right font-semibold text-zinc-900"
                         }
                       >
-                        {row.stock}
+                        {formatPieces(row.stock, row.unit, row.count_per_unit)}
                       </td>
                       <td className="py-3 text-right text-zinc-600">
                         {editingId === row.id ? (
@@ -255,7 +282,9 @@ export default function StockPage() {
                             onClick={() => startEdit(row)}
                             className="rounded-md px-2 py-1 text-base text-zinc-600 underline decoration-zinc-300 underline-offset-4 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                           >
-                            {row.min_stock === 0 ? "기준 없음" : row.min_stock}
+                            {row.min_stock === 0
+                              ? "기준 없음"
+                              : `${row.min_stock}${row.unit}`}
                           </button>
                         )}
                       </td>

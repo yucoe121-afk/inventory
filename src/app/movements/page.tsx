@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { formatPieces, stockInPieces, UnitKind } from "@/lib/stock";
 
 type Item = {
   id: string;
@@ -14,16 +15,22 @@ type Movement = {
   item_id: string;
   direction: "입고" | "출고";
   quantity: number;
+  unit_kind: UnitKind;
   movement_date: string | null;
   created_at: string | null;
   note: string | null;
-  items: { name: string; spec: string | null; unit: string } | null;
+  items: {
+    name: string;
+    spec: string | null;
+    unit: string;
+    count_per_unit: number;
+  } | null;
 };
 
 const SELECT_WITH_CREATED_AT =
-  "id, item_id, direction, quantity, movement_date, created_at, note, items(name, spec, unit)";
+  "id, item_id, direction, quantity, unit_kind, movement_date, created_at, note, items(name, spec, unit, count_per_unit)";
 const SELECT_WITHOUT_CREATED_AT =
-  "id, item_id, direction, quantity, movement_date, note, items(name, spec, unit)";
+  "id, item_id, direction, quantity, unit_kind, movement_date, note, items(name, spec, unit, count_per_unit)";
 
 async function fetchMovements(itemId: string, withCreatedAt: boolean) {
   let query = supabase
@@ -44,19 +51,14 @@ async function fetchMovements(itemId: string, withCreatedAt: boolean) {
   return { rows: (data ?? []) as unknown as Movement[], error };
 }
 
-// 이 기록을 지우면 그 품목 재고가 얼마가 되는지 미리 계산한다.
+// 이 기록을 지우면 그 품목 재고가 낱개로 얼마가 되는지 미리 계산한다.
 // 화면에는 그 품목의 기록이 모두 들어 있으므로 따로 조회하지 않는다.
 function stockAfterDelete(movements: Movement[], target: Movement) {
-  return movements
-    .filter(
-      (movement) =>
-        movement.item_id === target.item_id && movement.id !== target.id
-    )
-    .reduce(
-      (sum, movement) =>
-        sum + (movement.direction === "입고" ? movement.quantity : -movement.quantity),
-      0
-    );
+  const rest = movements.filter(
+    (movement) =>
+      movement.item_id === target.item_id && movement.id !== target.id
+  );
+  return stockInPieces(rest, target.items?.count_per_unit ?? 1);
 }
 
 function formatDate(movement: Movement) {
@@ -184,8 +186,12 @@ export default function MovementsPage() {
                     {remaining < 0 ? (
                       <p className="text-base font-medium text-red-700">
                         ⚠️ 지우면 {movement.items?.name ?? "이 품목"} 재고가{" "}
-                        {remaining}
-                        {movement.items?.unit ?? ""}가 됩니다. 그래도 지울까요?
+                        {formatPieces(
+                          remaining,
+                          movement.items?.unit ?? "",
+                          movement.items?.count_per_unit ?? 1
+                        )}
+                        가 됩니다. 그래도 지울까요?
                       </p>
                     ) : (
                       <p className="text-base font-medium text-zinc-900">
@@ -235,7 +241,9 @@ export default function MovementsPage() {
                         </span>
                         <span className="text-zinc-600">
                           {movement.quantity}
-                          {movement.items?.unit ?? ""}
+                          {movement.unit_kind === "낱개"
+                            ? "개"
+                            : movement.items?.unit ?? ""}
                         </span>
                       </p>
                       {movement.note && (

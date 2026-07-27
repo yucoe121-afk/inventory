@@ -2,12 +2,20 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
+import {
+  formatPieces,
+  stockInPieces,
+  toPieces,
+  MovementForStock,
+  UnitKind,
+} from "@/lib/stock";
 
 type Item = {
   id: string;
   name: string;
   spec: string | null;
   unit: string;
+  count_per_unit: number;
 };
 
 function todayString() {
@@ -25,6 +33,7 @@ export default function NewMovementPage() {
   const [itemId, setItemId] = useState("");
   const [direction, setDirection] = useState<"입고" | "출고">("입고");
   const [quantity, setQuantity] = useState("");
+  const [unitKind, setUnitKind] = useState<UnitKind>("단위");
   const [date, setDate] = useState(todayString());
   const [recorder, setRecorder] = useState("");
   const [note, setNote] = useState("");
@@ -36,12 +45,16 @@ export default function NewMovementPage() {
   const [loadingStock, setLoadingStock] = useState(false);
 
   const selectedItem = items.find((item) => item.id === itemId);
+  // 1단위가 곧 1개인 품목은 낱개/단위를 고를 필요가 없다
+  const hasPieces = (selectedItem?.count_per_unit ?? 1) > 1;
+  const quantityUnitLabel =
+    hasPieces && unitKind === "낱개" ? "개" : selectedItem?.unit ?? "수량";
 
   useEffect(() => {
     async function loadItems() {
       const { data } = await supabase
         .from("items")
-        .select("id, name, spec, unit")
+        .select("id, name, spec, unit, count_per_unit")
         .order("name");
       setItems(data ?? []);
       setLoadingItems(false);
@@ -49,15 +62,13 @@ export default function NewMovementPage() {
     loadItems();
   }, []);
 
-  async function fetchCurrentStock(id: string) {
+  // 현재고는 낱개 기준으로 돌려준다
+  async function fetchCurrentStock(id: string, countPerUnit: number) {
     const { data } = await supabase
       .from("stock_movements")
-      .select("direction, quantity")
+      .select("direction, quantity, unit_kind")
       .eq("item_id", id);
-    return (data ?? []).reduce(
-      (sum, m) => sum + (m.direction === "입고" ? m.quantity : -m.quantity),
-      0
-    );
+    return stockInPieces((data ?? []) as MovementForStock[], countPerUnit);
   }
 
   useEffect(() => {
@@ -67,12 +78,13 @@ export default function NewMovementPage() {
         return;
       }
       setLoadingStock(true);
-      const total = await fetchCurrentStock(itemId);
+      const item = items.find((candidate) => candidate.id === itemId);
+      const total = await fetchCurrentStock(itemId, item?.count_per_unit ?? 1);
       setCurrentStock(total);
       setLoadingStock(false);
     }
     loadCurrentStock();
-  }, [itemId]);
+  }, [itemId, items]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -97,13 +109,20 @@ export default function NewMovementPage() {
     setError("");
     setSaving(true);
 
+    const countPerUnit = selectedItem?.count_per_unit ?? 1;
+    const quantityPieces = toPieces(quantityNumber, unitKind, countPerUnit);
+
     if (direction === "출고") {
-      const freshStock = await fetchCurrentStock(itemId);
+      const freshStock = await fetchCurrentStock(itemId, countPerUnit);
       setCurrentStock(freshStock);
-      if (quantityNumber > freshStock) {
+      if (quantityPieces > freshStock) {
         setSaving(false);
         setError(
-          `현재고(${freshStock}${selectedItem?.unit ?? ""})보다 많이 출고할 수 없습니다.`
+          `현재고(${formatPieces(
+            freshStock,
+            selectedItem?.unit ?? "",
+            countPerUnit
+          )})보다 많이 출고할 수 없습니다.`
         );
         return;
       }
@@ -113,6 +132,7 @@ export default function NewMovementPage() {
       item_id: itemId,
       direction,
       quantity: quantityNumber,
+      unit_kind: unitKind,
       movement_date: date,
       recorder: recorder.trim(),
       note: note.trim() === "" ? null : note.trim(),
@@ -128,7 +148,7 @@ export default function NewMovementPage() {
     setCurrentStock((prev) =>
       prev === null
         ? prev
-        : prev + (direction === "입고" ? quantityNumber : -quantityNumber)
+        : prev + (direction === "입고" ? quantityPieces : -quantityPieces)
     );
 
     setSuccess(true);
@@ -171,7 +191,11 @@ export default function NewMovementPage() {
           ) : (
             <select
               value={itemId}
-              onChange={(e) => setItemId(e.target.value)}
+              onChange={(e) => {
+                setItemId(e.target.value);
+                // 품목을 바꾸면 낱개/단위 선택도 기본값으로 되돌린다
+                setUnitKind("단위");
+              }}
               className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-base focus:border-zinc-500 focus:outline-none"
             >
               <option value="">선택하세요</option>
@@ -184,10 +208,23 @@ export default function NewMovementPage() {
             </select>
           )}
           {itemId !== "" && (
-            <p className="mt-2 text-base text-zinc-600">
-              현재고:{" "}
-              {loadingStock ? "확인 중..." : `${currentStock}${selectedItem?.unit ?? ""}`}
-            </p>
+            <>
+              <p className="mt-2 text-base text-zinc-600">
+                현재고:{" "}
+                {loadingStock
+                  ? "확인 중..."
+                  : formatPieces(
+                      currentStock ?? 0,
+                      selectedItem?.unit ?? "",
+                      selectedItem?.count_per_unit ?? 1
+                    )}
+              </p>
+              {hasPieces && (
+                <p className="mt-1 text-base text-zinc-500">
+                  1{selectedItem?.unit} = {selectedItem?.count_per_unit}개
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -221,9 +258,41 @@ export default function NewMovementPage() {
           </div>
         </div>
 
+        {hasPieces && (
+          <div className="mb-5">
+            <label className="mb-2 block text-base font-medium text-zinc-700">
+              수량 단위
+            </label>
+            <div className="flex gap-4">
+              <label className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-3 text-base has-[:checked]:border-zinc-900 has-[:checked]:bg-zinc-900 has-[:checked]:text-white">
+                <input
+                  type="radio"
+                  name="unitKind"
+                  value="단위"
+                  checked={unitKind === "단위"}
+                  onChange={() => setUnitKind("단위")}
+                  className="sr-only"
+                />
+                {selectedItem?.unit} 단위
+              </label>
+              <label className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-3 text-base has-[:checked]:border-zinc-900 has-[:checked]:bg-zinc-900 has-[:checked]:text-white">
+                <input
+                  type="radio"
+                  name="unitKind"
+                  value="낱개"
+                  checked={unitKind === "낱개"}
+                  onChange={() => setUnitKind("낱개")}
+                  className="sr-only"
+                />
+                낱개(개)
+              </label>
+            </div>
+          </div>
+        )}
+
         <div className="mb-5">
           <label className="mb-2 block text-base font-medium text-zinc-700">
-            수량
+            수량 ({quantityUnitLabel} 기준)
           </label>
           <input
             type="number"
