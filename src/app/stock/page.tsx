@@ -45,10 +45,35 @@ function calculateStock(items: Item[], movements: Movement[]): StockRow[] {
   return items.map((item) => ({ ...item, stock: totals.get(item.id) ?? 0 }));
 }
 
+// 재고를 "세는 일"과 부족한지 "판단하는 일"은 따로 둔다.
+// 기준을 바꿀 일이 생기면 여기만 고치면 된다.
+// 최소재고 0은 "아직 기준을 안 정했다"는 뜻이므로 부족으로 보지 않는다.
+function isLowStock(row: StockRow) {
+  if (row.min_stock === 0) {
+    return false;
+  }
+  return row.stock <= row.min_stock;
+}
+
+// 부족한 품목을 표 맨 위로 모으고, 각 묶음 안은 가나다순으로 세운다.
+// 화면에서 최소재고를 고치면 부족 여부가 바뀌므로 그때마다 다시 세운다.
+function lowStockFirst(rows: StockRow[]): StockRow[] {
+  const byName = (a: StockRow, b: StockRow) => a.name.localeCompare(b.name, "ko");
+  return [
+    ...rows.filter(isLowStock).sort(byName),
+    ...rows.filter((row) => !isLowStock(row)).sort(byName),
+  ];
+}
+
 export default function StockPage() {
   const [rows, setRows] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const lowStockCount = rows.filter(isLowStock).length;
 
   useEffect(() => {
     async function loadStock() {
@@ -63,9 +88,11 @@ export default function StockPage() {
       } else {
         setError("");
         setRows(
-          calculateStock(
-            (itemsResult.data ?? []) as Item[],
-            (movementsResult.data ?? []) as Movement[]
+          lowStockFirst(
+            calculateStock(
+              (itemsResult.data ?? []) as Item[],
+              (movementsResult.data ?? []) as Movement[]
+            )
           )
         );
       }
@@ -73,6 +100,40 @@ export default function StockPage() {
     }
     loadStock();
   }, []);
+
+  function startEdit(row: StockRow) {
+    setEditingId(row.id);
+    setEditValue(String(row.min_stock));
+  }
+
+  async function saveMinStock(id: string) {
+    const value = Number(editValue);
+    if (!Number.isInteger(value) || value < 0) {
+      setError("최소재고는 0 이상의 숫자여야 합니다.");
+      return;
+    }
+
+    setSavingId(id);
+    const { error: updateError } = await supabase
+      .from("items")
+      .update({ min_stock: value })
+      .eq("id", id);
+    setSavingId(null);
+
+    if (updateError) {
+      setError("최소재고를 저장하지 못했습니다. 다시 시도해주세요.");
+      return;
+    }
+
+    setError("");
+    setEditingId(null);
+    // 기준이 바뀌면 부족 여부도 바뀌므로 순서를 다시 정렬한다
+    setRows((prev) =>
+      lowStockFirst(
+        prev.map((row) => (row.id === id ? { ...row, min_stock: value } : row))
+      )
+    );
+  }
 
   return (
     <div className="flex flex-1 items-start justify-center bg-zinc-50 px-4 py-12">
@@ -94,7 +155,35 @@ export default function StockPage() {
             등록된 품목이 없습니다.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="mb-6 flex gap-4">
+              <div className="flex-1 rounded-xl bg-zinc-50 px-4 py-4 text-center">
+                <p className="text-base text-zinc-600">전체 품목</p>
+                <p className="mt-1 text-3xl font-bold text-zinc-900">
+                  {rows.length}
+                </p>
+              </div>
+              <div className="flex-1 rounded-xl bg-zinc-50 px-4 py-4 text-center">
+                <p className="text-base text-zinc-600">부족 품목</p>
+                <p
+                  className={
+                    lowStockCount > 0
+                      ? "mt-1 text-3xl font-bold text-red-600"
+                      : "mt-1 text-3xl font-bold text-zinc-900"
+                  }
+                >
+                  {lowStockCount}
+                </p>
+              </div>
+            </div>
+
+            {lowStockCount === 0 && (
+              <div className="mb-6 rounded-lg bg-green-50 px-4 py-3 text-base font-medium text-green-700">
+                모든 재고가 충분합니다.
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
             <table className="w-full text-base">
               <thead>
                 <tr className="border-b border-zinc-300 text-left text-zinc-600">
@@ -105,24 +194,81 @@ export default function StockPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">
-                {rows.map((row) => (
-                  <tr key={row.id}>
-                    <td className="py-3 pr-4 font-medium text-zinc-900">
-                      {row.name}
-                      {row.spec ? ` (${row.spec})` : ""}
-                    </td>
-                    <td className="py-3 pr-4 text-zinc-600">{row.unit}</td>
-                    <td className="py-3 pr-4 text-right font-semibold text-zinc-900">
-                      {row.stock}
-                    </td>
-                    <td className="py-3 text-right text-zinc-600">
-                      {row.min_stock}
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((row) => {
+                  const low = isLowStock(row);
+                  return (
+                    <tr key={row.id} className={low ? "bg-red-50" : undefined}>
+                      <td
+                        className={
+                          low
+                            ? "py-3 pr-4 font-medium text-red-700"
+                            : "py-3 pr-4 font-medium text-zinc-900"
+                        }
+                      >
+                        {row.name}
+                        {row.spec ? ` (${row.spec})` : ""}
+                        {low && (
+                          <span className="ml-2 rounded-md bg-red-100 px-2 py-1 text-sm font-semibold text-red-700">
+                            부족
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-zinc-600">{row.unit}</td>
+                      <td
+                        className={
+                          low
+                            ? "py-3 pr-4 text-right font-semibold text-red-700"
+                            : "py-3 pr-4 text-right font-semibold text-zinc-900"
+                        }
+                      >
+                        {row.stock}
+                      </td>
+                      <td className="py-3 text-right text-zinc-600">
+                        {editingId === row.id ? (
+                          <span className="flex items-center justify-end gap-2">
+                            <input
+                              type="number"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-20 rounded-lg border border-zinc-300 px-2 py-2 text-right text-base focus:border-zinc-500 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => saveMinStock(row.id)}
+                              disabled={savingId === row.id}
+                              className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+                            >
+                              {savingId === row.id ? "저장 중..." : "저장"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingId(null)}
+                              disabled={savingId === row.id}
+                              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+                            >
+                              취소
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => startEdit(row)}
+                            className="rounded-md px-2 py-1 text-base text-zinc-600 underline decoration-zinc-300 underline-offset-4 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+                          >
+                            {row.min_stock === 0 ? "기준 없음" : row.min_stock}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            <p className="mt-4 text-base text-zinc-500">
+              최소재고 숫자를 누르면 바꿀 수 있습니다. 0으로 두면 기준 없음입니다.
+            </p>
+          </>
         )}
       </div>
     </div>
