@@ -1,12 +1,25 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/lib/auth";
+
+// 원장이 아닌 사람이 주소를 직접 쳤을 때 돌려보낼 화면
+const HOME_PATH = "/movements/new";
 
 export default function NewStaffPage() {
   const { user, loading } = useUser();
   const isOwner = user?.app_metadata?.role === "owner";
+  const router = useRouter();
+
+  // 원장이 아니면 경고를 잠깐 보여준 뒤 첫 화면으로 돌려보낸다.
+  // 메시지를 읽을 시간은 주되, 직원이 뭘 눌러야 할지 고민하지 않도록 자동으로 넘긴다.
+  useEffect(() => {
+    if (loading || isOwner) return;
+    const timer = setTimeout(() => router.replace(HOME_PATH), 2500);
+    return () => clearTimeout(timer);
+  }, [loading, isOwner, router]);
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -75,9 +88,14 @@ export default function NewStaffPage() {
   if (!isOwner) {
     return (
       <div className="flex flex-1 items-center justify-center bg-zinc-50 px-4 py-12">
-        <p className="text-base text-zinc-600">
-          이 화면은 원장님만 사용할 수 있습니다.
-        </p>
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
+          <p className="text-lg font-semibold text-zinc-900">
+            관리자 전용 페이지입니다.
+          </p>
+          <p className="mt-2 text-base text-zinc-600">
+            입출고 기록 화면으로 돌아갑니다.
+          </p>
+        </div>
       </div>
     );
   }
