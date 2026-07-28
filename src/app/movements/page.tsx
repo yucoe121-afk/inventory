@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { formatPieces, stockInPieces, UnitKind } from "@/lib/stock";
+import { formatPieces, stockInPieces, toPieces, UnitKind } from "@/lib/stock";
 
 type Item = {
   id: string;
@@ -19,6 +19,7 @@ type Movement = {
   movement_date: string | null;
   created_at: string | null;
   note: string | null;
+  recorder: string | null;
   items: {
     name: string;
     spec: string | null;
@@ -28,9 +29,9 @@ type Movement = {
 };
 
 const SELECT_WITH_CREATED_AT =
-  "id, item_id, direction, quantity, unit_kind, movement_date, created_at, note, items(name, spec, unit, count_per_unit)";
+  "id, item_id, direction, quantity, unit_kind, movement_date, created_at, note, recorder, items(name, spec, unit, count_per_unit)";
 const SELECT_WITHOUT_CREATED_AT =
-  "id, item_id, direction, quantity, unit_kind, movement_date, note, items(name, spec, unit, count_per_unit)";
+  "id, item_id, direction, quantity, unit_kind, movement_date, note, recorder, items(name, spec, unit, count_per_unit)";
 
 async function fetchMovements(itemId: string, withCreatedAt: boolean) {
   let query = supabase
@@ -61,14 +62,52 @@ function stockAfterDelete(movements: Movement[], target: Movement) {
   return stockInPieces(rest, target.items?.count_per_unit ?? 1);
 }
 
-function formatDate(movement: Movement) {
-  // 품목 등록 때 넣은 초기 수량에는 날짜가 없어서, 기록이 만들어진 시각으로 대신 보여준다
+// 품목 등록 때 넣은 초기 수량에는 날짜가 없어서, 기록이 만들어진 시각으로 대신 묶는다
+function dateKey(movement: Movement) {
   const raw = movement.movement_date ?? movement.created_at;
-  if (!raw) {
-    return "날짜 없음";
+  return raw ? raw.slice(0, 10) : "";
+}
+
+// 2026-07-28 -> 26.07.28
+function formatDateLabel(key: string) {
+  if (key === "") return "날짜 없음";
+  const [yyyy, mm, dd] = key.split("-");
+  return `${yyyy.slice(2)}.${mm}.${dd}`;
+}
+
+// 같은 날짜끼리 묶는다. 날짜 줄은 하루에 한 번만 나온다.
+// 처음 나온 순서를 그대로 유지하므로, 같은 날짜 줄이 두 번 생기지 않는다.
+function groupByDate(movements: Movement[]) {
+  const groups = new Map<string, Movement[]>();
+  for (const movement of movements) {
+    const key = dateKey(movement);
+    const rows = groups.get(key);
+    if (rows) {
+      rows.push(movement);
+    } else {
+      groups.set(key, [movement]);
+    }
   }
-  const [yyyy, mm, dd] = raw.slice(0, 10).split("-");
-  return `${yyyy}. ${Number(mm)}. ${Number(dd)}.`;
+  return [...groups.entries()].map(([key, rows]) => ({ key, rows }));
+}
+
+// 기록한 그대로의 수량 (예: 2박스, 3개)
+function quantityLabel(movement: Movement) {
+  const unit =
+    movement.unit_kind === "낱개" ? "개" : movement.items?.unit ?? "";
+  return `${movement.quantity}${unit}`;
+}
+
+// 낱개로 환산한 수량. 1단위가 곧 1개인 품목은 위와 똑같아지므로 보여주지 않는다.
+function pieceLabel(movement: Movement) {
+  const countPerUnit = movement.items?.count_per_unit ?? 1;
+  if (countPerUnit <= 1) return "";
+  const pieces = toPieces(
+    movement.quantity,
+    movement.unit_kind,
+    countPerUnit
+  );
+  return `${pieces}개`;
 }
 
 export default function MovementsPage() {
@@ -173,14 +212,25 @@ export default function MovementsPage() {
               : "이 품목의 기록이 없습니다."}
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-200">
-            {movements.map((movement) => {
-              const remaining =
-                confirmingId === movement.id
-                  ? stockAfterDelete(movements, movement)
-                  : 0;
-              return (
-              <li key={movement.id} className="py-4">
+          <div className="space-y-6">
+            {groupByDate(movements).map((group) => (
+              <div key={group.key}>
+                {/* 날짜는 하루에 한 번, 구분선과 함께 */}
+                <div className="mb-1 flex items-center gap-3">
+                  <span className="text-base font-semibold text-zinc-900">
+                    {formatDateLabel(group.key)}
+                  </span>
+                  <span className="h-px flex-1 bg-zinc-200" />
+                </div>
+                <ul className="divide-y divide-zinc-100">
+                  {group.rows.map((movement) => {
+                    const remaining =
+                      confirmingId === movement.id
+                        ? stockAfterDelete(movements, movement)
+                        : 0;
+                    const pieces = pieceLabel(movement);
+                    return (
+              <li key={movement.id} className="py-2">
                 {confirmingId === movement.id ? (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     {remaining < 0 ? (
@@ -218,53 +268,51 @@ export default function MovementsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-sm text-zinc-500">
-                        {formatDate(movement)}
-                      </p>
-                      <p className="mt-1 flex flex-wrap items-center gap-2 text-base font-medium text-zinc-900">
-                        <span
-                          className={
-                            movement.direction === "입고"
-                              ? "rounded-md bg-blue-50 px-2 py-1 text-sm font-semibold text-blue-700"
-                              : "rounded-md bg-orange-50 px-2 py-1 text-sm font-semibold text-orange-700"
-                          }
-                        >
-                          {movement.direction}
-                        </span>
-                        <span>
-                          {movement.items?.name ?? "삭제된 품목"}
-                          {movement.items?.spec
-                            ? ` (${movement.items.spec})`
-                            : ""}
-                        </span>
-                        <span className="text-zinc-600">
-                          {movement.quantity}
-                          {movement.unit_kind === "낱개"
-                            ? "개"
-                            : movement.items?.unit ?? ""}
-                        </span>
-                      </p>
-                      {movement.note && (
-                        <p className="mt-1 text-base text-zinc-600">
-                          {movement.note}
-                        </p>
-                      )}
-                    </div>
+                  // 기록 한 건은 한 줄로. 화면이 좁으면 자연스럽게 접힌다.
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base">
+                    <span
+                      className={
+                        movement.direction === "입고"
+                          ? "shrink-0 rounded-md bg-blue-50 px-2 py-0.5 text-sm font-semibold text-blue-700"
+                          : "shrink-0 rounded-md bg-orange-50 px-2 py-0.5 text-sm font-semibold text-orange-700"
+                      }
+                    >
+                      {movement.direction}
+                    </span>
+                    <span className="font-medium text-zinc-900">
+                      {movement.items?.name ?? "삭제된 품목"}
+                      {movement.items?.spec ? ` (${movement.items.spec})` : ""}
+                    </span>
+                    <span className="text-zinc-700">
+                      {quantityLabel(movement)}
+                    </span>
+                    {pieces && (
+                      <span className="text-zinc-500">({pieces})</span>
+                    )}
+                    {movement.note && (
+                      <span className="min-w-0 truncate text-zinc-500">
+                        {movement.note}
+                      </span>
+                    )}
+                    <span className="ml-auto shrink-0 text-zinc-500">
+                      {movement.recorder ?? ""}
+                    </span>
                     <button
                       type="button"
                       onClick={() => setConfirmingId(movement.id)}
-                      className="shrink-0 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+                      className="shrink-0 rounded-lg border border-zinc-300 px-3 py-1 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
                     >
                       삭제
                     </button>
                   </div>
                 )}
               </li>
-              );
-            })}
-          </ul>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
