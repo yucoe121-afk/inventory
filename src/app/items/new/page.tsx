@@ -2,11 +2,16 @@
 
 import { useState, FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
+import { displayName, useUser } from "@/lib/auth";
 
 const UNIT_OPTIONS = ["개", "박스", "팩"];
 const CATEGORY_OPTIONS = ["의료소모품", "사무용품", "청소용품"];
 
 export default function NewItemPage() {
+  // 등록자도 로그인한 사람 이름을 그대로 쓴다
+  const { user } = useUser();
+  const recorder = displayName(user);
+
   const [name, setName] = useState("");
   const [spec, setSpec] = useState("");
   const [unit, setUnit] = useState(UNIT_OPTIONS[0]);
@@ -14,7 +19,6 @@ export default function NewItemPage() {
   const [minStock, setMinStock] = useState("0");
   const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
   const [initialQuantity, setInitialQuantity] = useState("0");
-  const [recorder, setRecorder] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,8 +50,9 @@ export default function NewItemPage() {
       return;
     }
 
-    if (initialQuantityNumber > 0 && recorder.trim() === "") {
-      setError("등록자를 입력해주세요.");
+    // 로그인 정보를 아직 못 읽었을 때만 걸린다
+    if (initialQuantityNumber > 0 && recorder === "") {
+      setError("로그인 정보를 확인하는 중입니다. 잠시 후 다시 눌러주세요.");
       return;
     }
 
@@ -80,7 +85,7 @@ export default function NewItemPage() {
           item_id: insertedItem.id,
           direction: "입고",
           quantity: initialQuantityNumber,
-          recorder: recorder.trim(),
+          recorder,
         });
 
       if (movementError) {
@@ -99,7 +104,6 @@ export default function NewItemPage() {
     setMinStock("0");
     setCategory(CATEGORY_OPTIONS[0]);
     setInitialQuantity("0");
-    setRecorder("");
   }
 
   return (
@@ -226,13 +230,9 @@ export default function NewItemPage() {
             <label className="mb-2 block text-base font-medium text-zinc-700">
               등록자
             </label>
-            <input
-              type="text"
-              value={recorder}
-              onChange={(e) => setRecorder(e.target.value)}
-              className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-base focus:border-zinc-500 focus:outline-none"
-              placeholder="예: 홍길동"
-            />
+            <p className="rounded-lg bg-zinc-100 px-4 py-3 text-base text-zinc-600">
+              {recorder === "" ? "확인 중..." : recorder}
+            </p>
           </div>
         )}
 

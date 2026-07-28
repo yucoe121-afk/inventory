@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
+import { displayName, useUser } from "@/lib/auth";
 import {
   formatPieces,
   stockInPieces,
@@ -27,6 +28,10 @@ function todayString() {
 }
 
 export default function NewMovementPage() {
+  // 기록자는 더 이상 손으로 적지 않는다. 로그인한 사람 이름이 그대로 들어간다.
+  const { user } = useUser();
+  const recorder = displayName(user);
+
   const [items, setItems] = useState<Item[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
 
@@ -35,7 +40,6 @@ export default function NewMovementPage() {
   const [quantity, setQuantity] = useState("");
   const [unitKind, setUnitKind] = useState<UnitKind>("단위");
   const [date, setDate] = useState(todayString());
-  const [recorder, setRecorder] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -101,8 +105,9 @@ export default function NewMovementPage() {
       return;
     }
 
-    if (recorder.trim() === "") {
-      setError("기록자를 입력해주세요.");
+    // 로그인 정보를 아직 못 읽었을 때만 걸린다. 기록자 없는 기록이 남지 않게 막는다.
+    if (recorder === "") {
+      setError("로그인 정보를 확인하는 중입니다. 잠시 후 다시 눌러주세요.");
       return;
     }
 
@@ -134,7 +139,7 @@ export default function NewMovementPage() {
       quantity: quantityNumber,
       unit_kind: unitKind,
       movement_date: date,
-      recorder: recorder.trim(),
+      recorder,
       note: note.trim() === "" ? null : note.trim(),
     });
 
@@ -318,13 +323,9 @@ export default function NewMovementPage() {
           <label className="mb-2 block text-base font-medium text-zinc-700">
             기록자
           </label>
-          <input
-            type="text"
-            value={recorder}
-            onChange={(e) => setRecorder(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-base focus:border-zinc-500 focus:outline-none"
-            placeholder="예: 홍길동"
-          />
+          <p className="rounded-lg bg-zinc-100 px-4 py-3 text-base text-zinc-600">
+            {recorder === "" ? "확인 중..." : recorder}
+          </p>
         </div>
 
         <div className="mb-8">
