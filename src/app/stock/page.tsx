@@ -163,9 +163,11 @@ export default function StockPage() {
   }
 
   return (
-    <div className="flex flex-1 items-start justify-center bg-zinc-50 px-4 py-12">
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-sm">
-        <h1 className="mb-8 text-2xl font-bold text-zinc-900">재고 현황</h1>
+    <div className="flex flex-1 items-start justify-center bg-zinc-50 px-2 py-4 sm:px-4 sm:py-12">
+      <div className="w-full max-w-2xl rounded-2xl bg-white p-4 shadow-sm sm:p-8">
+        <h1 className="mb-4 text-xl font-bold text-zinc-900 sm:mb-8 sm:text-2xl">
+          재고 현황
+        </h1>
 
         {error && (
           <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-base font-medium text-red-700">
@@ -183,20 +185,20 @@ export default function StockPage() {
           </p>
         ) : (
           <>
-            <div className="mb-6 flex gap-4">
-              <div className="flex-1 rounded-xl bg-zinc-50 px-4 py-4 text-center">
-                <p className="text-base text-zinc-600">전체 품목</p>
-                <p className="mt-1 text-3xl font-bold text-zinc-900">
+            <div className="mb-4 flex gap-3 sm:mb-6 sm:gap-4">
+              <div className="flex-1 rounded-xl bg-zinc-50 px-3 py-2 text-center sm:px-4 sm:py-4">
+                <p className="text-sm text-zinc-600 sm:text-base">전체 품목</p>
+                <p className="text-2xl font-bold text-zinc-900 sm:mt-1 sm:text-3xl">
                   {rows.length}
                 </p>
               </div>
-              <div className="flex-1 rounded-xl bg-zinc-50 px-4 py-4 text-center">
-                <p className="text-base text-zinc-600">부족 품목</p>
+              <div className="flex-1 rounded-xl bg-zinc-50 px-3 py-2 text-center sm:px-4 sm:py-4">
+                <p className="text-sm text-zinc-600 sm:text-base">부족 품목</p>
                 <p
                   className={
                     lowStockCount > 0
-                      ? "mt-1 text-3xl font-bold text-red-600"
-                      : "mt-1 text-3xl font-bold text-zinc-900"
+                      ? "text-2xl font-bold text-red-600 sm:mt-1 sm:text-3xl"
+                      : "text-2xl font-bold text-zinc-900 sm:mt-1 sm:text-3xl"
                   }
                 >
                   {lowStockCount}
@@ -205,7 +207,7 @@ export default function StockPage() {
             </div>
 
             {lowStockCount === 0 && (
-              <div className="mb-6 rounded-lg bg-green-50 px-4 py-3 text-base font-medium text-green-700">
+              <div className="mb-4 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700 sm:mb-6 sm:px-4 sm:py-3 sm:text-base">
                 모든 재고가 충분합니다.
               </div>
             )}
@@ -214,10 +216,12 @@ export default function StockPage() {
             <table className="w-full text-base">
               <thead>
                 <tr className="border-b border-zinc-300 text-left text-zinc-600">
-                  <th className="py-3 pr-4 font-medium">품목명</th>
-                  <th className="py-3 pr-4 font-medium">단위</th>
-                  <th className="py-3 pr-4 text-right font-medium">현재고</th>
-                  <th className="py-3 text-right font-medium">최소재고</th>
+                  <th className="py-2 pr-2 font-medium sm:py-3 sm:pr-4">품목명</th>
+                  <th className="py-2 pr-2 font-medium sm:py-3 sm:pr-4">단위</th>
+                  <th className="py-2 pr-2 text-right font-medium sm:py-3 sm:pr-4">
+                    현재고
+                  </th>
+                  <th className="py-2 text-right font-medium sm:py-3">최소재고</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">
@@ -228,29 +232,31 @@ export default function StockPage() {
                       <td
                         className={
                           low
-                            ? "py-3 pr-4 font-medium text-red-700"
-                            : "py-3 pr-4 font-medium text-zinc-900"
+                            ? "py-2 pr-2 font-medium text-red-700 sm:py-3 sm:pr-4"
+                            : "py-2 pr-2 font-medium text-zinc-900 sm:py-3 sm:pr-4"
                         }
                       >
                         {row.name}
                         {row.spec ? ` (${row.spec})` : ""}
                         {low && (
-                          <span className="ml-2 rounded-md bg-red-100 px-2 py-1 text-sm font-semibold text-red-700">
+                          <span className="ml-1 rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-700 sm:ml-2 sm:px-2 sm:py-1 sm:text-sm">
                             부족
                           </span>
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-zinc-600">{row.unit}</td>
+                      <td className="py-2 pr-2 text-zinc-600 sm:py-3 sm:pr-4">
+                        {row.unit}
+                      </td>
                       <td
                         className={
                           low
-                            ? "py-3 pr-4 text-right font-semibold text-red-700"
-                            : "py-3 pr-4 text-right font-semibold text-zinc-900"
+                            ? "py-2 pr-2 text-right font-semibold text-red-700 sm:py-3 sm:pr-4"
+                            : "py-2 pr-2 text-right font-semibold text-zinc-900 sm:py-3 sm:pr-4"
                         }
                       >
                         {formatPieces(row.stock, row.unit, row.count_per_unit)}
                       </td>
-                      <td className="py-3 text-right text-zinc-600">
+                      <td className="py-2 text-right text-zinc-600 sm:py-3">
                         {editingId === row.id ? (
                           <span className="flex items-center justify-end gap-2">
                             <input
@@ -294,7 +300,7 @@ export default function StockPage() {
               </tbody>
               </table>
             </div>
-            <p className="mt-4 text-base text-zinc-500">
+            <p className="mt-3 text-sm text-zinc-500 sm:mt-4 sm:text-base">
               최소재고 숫자를 누르면 바꿀 수 있습니다. 0으로 두면 기준 없음입니다.
             </p>
           </>

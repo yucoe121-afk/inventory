@@ -31,27 +31,30 @@ export default function Nav() {
 
   return (
     <nav className="border-b border-zinc-200 bg-white">
-      <div className="mx-auto flex w-full max-w-2xl items-center justify-end gap-3 px-4 pt-3">
-        <span className="text-base text-zinc-500">{displayName(user)} 님</span>
+      <div className="mx-auto flex w-full max-w-2xl items-center justify-end gap-2 px-3 pt-2 sm:gap-3 sm:px-4 sm:pt-3">
+        <span className="text-sm text-zinc-500 sm:text-base">
+          {displayName(user)} 님
+        </span>
         <button
           type="button"
           onClick={handleLogout}
-          className="rounded-lg border border-zinc-300 px-3 py-1 text-base text-zinc-600 transition-colors hover:bg-zinc-50"
+          className="rounded-lg border border-zinc-300 px-2 py-1 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 sm:px-3 sm:text-base"
         >
           로그아웃
         </button>
       </div>
-      <ul className="mx-auto flex w-full max-w-2xl">
+      {/* 폰에서는 탭이 화면보다 넓으므로 가로로 밀어서 본다. 글자를 줄여 억지로 욱여넣지 않는다. */}
+      <ul className="mx-auto flex w-full max-w-2xl overflow-x-auto">
         {tabs.map((tab) => {
           const active = pathname === tab.href;
           return (
-            <li key={tab.href} className="flex-1">
+            <li key={tab.href} className="shrink-0 sm:flex-1">
               <Link
                 href={tab.href}
                 className={
                   active
-                    ? "block border-b-2 border-zinc-900 px-4 py-4 text-center text-base font-semibold text-zinc-900"
-                    : "block border-b-2 border-transparent px-4 py-4 text-center text-base font-medium text-zinc-500 transition-colors hover:text-zinc-900"
+                    ? "block whitespace-nowrap border-b-2 border-zinc-900 px-3 py-3 text-center text-base font-semibold text-zinc-900 sm:px-4 sm:py-4"
+                    : "block whitespace-nowrap border-b-2 border-transparent px-3 py-3 text-center text-base font-medium text-zinc-500 transition-colors hover:text-zinc-900 sm:px-4 sm:py-4"
                 }
               >
                 {tab.label}
