@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>소모품 재고관리 사용 안내</title>
+
+<!--
+  직원에게 나눠줄 1페이지 안내문입니다.
+  이 파일을 브라우저로 열고 Ctrl+P (맥은 Cmd+P) 로 인쇄하면 A4 한 장에 맞습니다.
+
+  접속 주소가 바뀌면 아래쪽 class="url" 칸 한 곳만 고치면 됩니다.
+-->
+
+<style>
+  * { box-sizing: border-box; }
+
+  :root {
+    --paper: #ffffff;
+    --sheet-bg: #e9edeb;
+    --ink: #15201e;
+    --ink-soft: #55635f;
+    --rule: #dbe3e0;
+    --tint: #f3f7f5;
+    --in: #1d5fa8;
+    --in-bg: #eaf1f9;
+    --out: #a8501c;
+    --out-bg: #fbf0e8;
+    --alert: #a32b2b;
+    --alert-bg: #fcedee;
+
+    --font-sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+      "Malgun Gothic", "맑은 고딕", "Noto Sans KR", "Segoe UI", sans-serif;
+    --font-num: Georgia, "Times New Roman", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121614;
+      --sheet-bg: #0b0e0d;
+      --ink: #e8edeb;
+      --ink-soft: #9aa8a4;
+      --rule: #2a322f;
+      --tint: #1a211f;
+      --in: #86b6e8;
+      --in-bg: #17222e;
+      --out: #e0a279;
+      --out-bg: #2a1f17;
+      --alert: #e89191;
+      --alert-bg: #2c1a1a;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #121614;
+    --sheet-bg: #0b0e0d;
+    --ink: #e8edeb;
+    --ink-soft: #9aa8a4;
+    --rule: #2a322f;
+    --tint: #1a211f;
+    --in: #86b6e8;
+    --in-bg: #17222e;
+    --out: #e0a279;
+    --out-bg: #2a1f17;
+    --alert: #e89191;
+    --alert-bg: #2c1a1a;
+  }
+
+  :root[data-theme="light"] {
+    --paper: #ffffff;
+    --sheet-bg: #e9edeb;
+    --ink: #15201e;
+    --ink-soft: #55635f;
+    --rule: #dbe3e0;
+    --tint: #f3f7f5;
+    --in: #1d5fa8;
+    --in-bg: #eaf1f9;
+    --out: #a8501c;
+    --out-bg: #fbf0e8;
+    --alert: #a32b2b;
+    --alert-bg: #fcedee;
+  }
+
+  body {
+    margin: 0;
+    background: var(--sheet-bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet {
+    max-width: 196mm;
+    margin: 0 auto;
+    padding: 13mm 14mm 11mm;
+    background: var(--paper);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 12px 40px rgba(0, 0, 0, 0.08);
+  }
+
+  @media (min-width: 800px) {
+    body { padding: 24px 16px 48px; }
+  }
+
+  /* ---------- header ---------- */
+
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px 24px;
+    padding-bottom: 9px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .eyebrow {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--ink-soft);
+    margin: 0 0 3px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 25px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  .masthead p.sub {
+    margin: 0;
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-align: right;
+  }
+
+  /* ---------- address callout ---------- */
+
+  .address {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    margin-top: 10px;
+    padding: 9px 13px;
+    background: var(--tint);
+    border-left: 3px solid var(--in);
+  }
+
+  .address .label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+  }
+
+  .address .url {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    word-break: break-all;
+  }
+
+  /* ---------- sections ---------- */
+
+  .cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 22px;
+    margin-top: 14px;
+  }
+
+  @media (max-width: 620px) {
+    .cols { grid-template-columns: 1fr; }
+  }
+
+  section { break-inside: avoid; }
+
+  .head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding-bottom: 4px;
+    margin-bottom: 7px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .head .n {
+    font-family: var(--font-num);
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--in);
+  }
+
+  .head h2 {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  .head .hint {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  ol, ul { margin: 0; padding-left: 17px; }
+  li { margin-bottom: 3px; }
+  li:last-child { margin-bottom: 0; }
+
+  .device {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    margin: 0 0 3px;
+  }
+
+  .device + ol { margin-bottom: 9px; }
+
+  kbd {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0 4px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--tint);
+    white-space: nowrap;
+  }
+
+  /* ---------- steps ---------- */
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 2px;
+  }
+
+  @media (max-width: 620px) {
+    .steps { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .step {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 9px 10px;
+    background: var(--tint);
+    border-radius: 2px;
+  }
+
+  .step .top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .step .n {
+    font-family: var(--font-num);
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--in);
+  }
+
+  .step svg {
+    width: 17px;
+    height: 17px;
+    stroke: var(--ink-soft);
+    stroke-width: 1.7;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    margin-left: auto;
+  }
+
+  .step b {
+    font-size: 12.5px;
+    font-weight: 800;
+    display: block;
+  }
+
+  .step span {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    line-height: 1.45;
+  }
+
+  /* ---------- in / out ---------- */
+
+  .inout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  @media (max-width: 620px) {
+    .inout { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    padding: 8px 11px;
+    border-radius: 2px;
+  }
+
+  .card.in { background: var(--in-bg); }
+  .card.out { background: var(--out-bg); }
+
+  .card .tag {
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .card.in .tag { color: var(--in); }
+  .card.out .tag { color: var(--out); }
+
+  .card p {
+    margin: 2px 0 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  .notes {
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid var(--rule);
+    font-size: 11.5px;
+    color: var(--ink-soft);
+  }
+
+  .notes b { color: var(--ink); }
+
+  /* ---------- help ---------- */
+
+  .help {
+    margin-top: 14px;
+    padding: 11px 14px;
+    background: var(--alert-bg);
+    border-left: 3px solid var(--alert);
+    break-inside: avoid;
+  }
+
+  .help h2 {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--alert);
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .help h2 .n {
+    font-family: var(--font-num);
+    font-size: 19px;
+    line-height: 1;
+  }
+
+  .help .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+    font-size: 12px;
+  }
+
+  .help .row span { white-space: nowrap; }
+
+  .help .say {
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    font-weight: 700;
+  }
+
+  .contact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px 20px;
+    margin-top: 8px;
+    padding-top: 7px;
+    border-top: 1px solid color-mix(in srgb, var(--alert) 25%, transparent);
+    font-size: 11.5px;
+    color: var(--ink-soft);
+  }
+
+  .fill {
+    display: inline-block;
+    min-width: 110px;
+    border-bottom: 1px solid var(--ink-soft);
+  }
+
+  footer {
+    margin-top: 11px;
+    padding-top: 7px;
+    border-top: 1px solid var(--rule);
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 16px;
+  }
+
+  /* ---------- print ---------- */
+
+  @media print {
+    :root {
+      --paper: #ffffff;
+      --sheet-bg: #ffffff;
+      --ink: #15201e;
+      --ink-soft: #55635f;
+      --rule: #dbe3e0;
+      --tint: #f3f7f5;
+      --in: #1d5fa8;
+      --in-bg: #eaf1f9;
+      --out: #a8501c;
+      --out-bg: #fbf0e8;
+      --alert: #a32b2b;
+      --alert-bg: #fcedee;
+    }
+
+    @page { size: A4; margin: 10mm; }
+
+    body {
+      background: #fff;
+      padding: 0;
+      font-size: 11.5px;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+
+    .sheet {
+      max-width: none;
+      padding: 0;
+      box-shadow: none;
+    }
+
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="masthead">
+    <div>
+      <p class="eyebrow">직원용 안내</p>
+      <h1>소모품 재고관리 사용 안내</h1>
+    </div>
+    <p class="sub">
+      물건이 들어오고 나갈 때마다<br />
+      휴대폰으로 기록해 주세요
+    </p>
+  </div>
+
+  <div class="address">
+    <span class="label">접속 주소</span>
+    <span class="url">yucoe121-afk-inventory-ten.vercel.app</span>
+  </div>
+
+  <div class="cols">
+    <section>
+      <div class="head">
+        <span class="n">1</span>
+        <h2>로그인하기</h2>
+        <span class="hint">처음 한 번만</span>
+      </div>
+      <ol>
+        <li>위 주소를 휴대폰 브라우저에 입력합니다.</li>
+        <li>
+          <b>이메일</b>과 <b>비밀번호</b>를 넣고 <kbd>로그인</kbd>을 누릅니다.
+        </li>
+        <li>다음부터는 자동으로 로그인되어 바로 열립니다.</li>
+      </ol>
+      <div class="notes">
+        <b>계정은 한 사람당 하나입니다.</b> 다른 사람 계정으로 로그인하지
+        마세요. 기록에 로그인한 사람의 이름이 그대로 남습니다.<br />
+        아이디와 비밀번호는 원장님께 받으세요.
+      </div>
+    </section>
+
+    <section>
+      <div class="head">
+        <span class="n">2</span>
+        <h2>홈 화면에 추가하기</h2>
+        <span class="hint">앱처럼 쓰기</span>
+      </div>
+      <p class="device">아이폰 (사파리)</p>
+      <ol>
+        <li>위 주소를 사파리로 엽니다.</li>
+        <li>화면 아래 <kbd>공유</kbd> 버튼을 누릅니다.</li>
+        <li><kbd>홈 화면에 추가</kbd> → <kbd>추가</kbd></li>
+      </ol>
+      <p class="device">안드로이드 (크롬)</p>
+      <ol>
+        <li>위 주소를 크롬으로 엽니다.</li>
+        <li>오른쪽 위 <kbd>⋮</kbd> 를 누릅니다.</li>
+        <li><kbd>홈 화면에 추가</kbd> → <kbd>추가</kbd></li>
+      </ol>
+    </section>
+  </div>
+
+  <section style="margin-top: 14px">
+    <div class="head">
+      <span class="n">3</span>
+      <h2>들어오거나 나갈 때 기록하기</h2>
+      <span class="hint">네 번만 누르면 끝납니다</span>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="top">
+          <span class="n">1</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </div>
+        <b>입출고 기록</b>
+        <span>맨 위 메뉴에서 <b>입출고 기록</b>을 누릅니다.</span>
+      </div>
+
+      <div class="step">
+        <div class="top">
+          <span class="n">2</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3.5" y="5" width="17" height="14" rx="2" />
+            <path d="M8 10.5l3 3 5-5" />
+          </svg>
+        </div>
+        <b>품목 고르기</b>
+        <span>목록에서 해당 물건을 고릅니다. 현재고가 바로 보입니다.</span>
+      </div>
+
+      <div class="step">
+        <div class="top">
+          <span class="n">3</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 4v9m0 0l-3.5-3.5M12 13l3.5-3.5" />
+            <path d="M4.5 16.5v2a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5v-2" />
+          </svg>
+        </div>
+        <b>입고 / 출고</b>
+        <span>들어왔으면 <b>입고</b>, 꺼내 썼으면 <b>출고</b>를 누릅니다.</span>
+      </div>
+
+      <div class="step">
+        <div class="top">
+          <span class="n">4</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4.5 12.5l5 5 10-11" />
+          </svg>
+        </div>
+        <b>수량 넣고 저장</b>
+        <span>숫자를 넣고 <b>저장</b>을 누르면 끝입니다.</span>
+      </div>
+    </div>
+
+    <div class="inout">
+      <div class="card in">
+        <span class="tag">입고 — 물건이 들어왔을 때</span>
+        <p>납품이 왔을 때, 새로 사 왔을 때. 창고에 채워 넣은 만큼 적습니다.</p>
+      </div>
+      <div class="card out">
+        <span class="tag">출고 — 물건을 꺼냈을 때</span>
+        <p>진료·처치에 쓰려고 꺼냈을 때. 꺼낸 만큼 적습니다.</p>
+      </div>
+    </div>
+
+    <div class="notes">
+      <b>기록자는 자동으로 들어갑니다.</b> 이름을 적을 필요가 없습니다. ·
+      <b>날짜는 오늘로 자동</b>입니다. 다른 날 일이면 날짜만 바꿔 주세요. ·
+      박스째 받았으면 <b>박스</b>, 낱개로 꺼냈으면 <b>낱개</b>를 골라 주세요. ·
+      쓰자마자 바로 적는 것이 가장 정확합니다.
+    </div>
+  </section>
+
+  <div class="help">
+    <h2><span class="n">4</span> 이상하면 원장님께 말씀해 주세요</h2>
+    <div class="row">
+      <span>· 재고 숫자가 실제 물건과 다를 때</span>
+      <span>· 저장이 안 될 때</span>
+      <span>· 로그인이 안 될 때</span>
+      <span>· 품목이 목록에 없을 때</span>
+      <span>· 잘못 기록했을 때</span>
+    </div>
+    <p class="say">
+      직접 고치거나 지우지 마세요. 잘못 지우면 되돌리기 어렵습니다. 그냥
+      말씀만 해 주시면 됩니다.
+    </p>
+    <div class="contact">
+      <span>원장님 연락처 <span class="fill"></span></span>
+      <span>이 앱에는 환자 정보를 절대 입력하지 않습니다. 소모품만 기록합니다.</span>
+    </div>
+  </div>
+
+  <footer>
+    <span>병원 소모품 재고관리</span>
+    <span>안내문은 잘 보이는 곳에 붙여 두세요</span>
+  </footer>
+</div>
+
+</body>
+</html>
