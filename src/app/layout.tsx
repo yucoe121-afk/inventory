@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Nav from "./nav";
+import AuthGate from "./auth-gate";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,8 +29,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <Nav />
-        {children}
+        {/* 여기 한 군데만 감싸면 모든 화면이 한꺼번에 보호된다 */}
+        <AuthGate>{children}</AuthGate>
       </body>
     </html>
   );
